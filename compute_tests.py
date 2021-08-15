@@ -139,7 +139,7 @@ def online_test():
 	speakers = enroll_result['speaker']
 
 	with open(c.ONLINE_RESULT_FILE, c.ONLINE_RESULT_WRITE_OPTION) as f:
-		f.write("condition,test_speaker,{},result,correct\n".format(','.join(speakers)))
+		f.write("condition,test_speaker,{},result,correct\n".format(','.join(str(id) for id in speakers))) # [BUG]: TypeError: sequence item 0: expected string, int found.
 	CSV_PREFIX = c.ONLINE_CONDITION + "," + c.ONLINE_SPEAKER + ","
 
 	p = pyaudio.PyAudio()
@@ -183,7 +183,7 @@ def online_test():
 		print("-----> {}".format(min_spk))
 
 		correct = int(min_spk == c.ONLINE_SPEAKER)
-		buff += min_spk + "," + str(correct)
+		buff += str(min_spk) + "," + str(correct)
 		with open(c.ONLINE_RESULT_FILE, 'a') as f:
 			f.write(buff + "\n")
 
@@ -195,7 +195,7 @@ def test():
 	TEST_WAV1 = "data/wav/file1.wav"
 	TEST_WAV2 = "data/wav/file2.wav"
 	model = vggvox_model()
-	model.load_weights("data/model_weights/model_0.h5")
+	model.load_weights("data/model/weights.h5")
 	buckets = build_buckets(c.MAX_SEC_TEST,c.BUCKET_STEP_SEC)
 	spec1 = read_and_process_audio(TEST_WAV1,buckets)
 	emb1 = model.predict(spec1.reshape(1,*spec1.shape,1))
