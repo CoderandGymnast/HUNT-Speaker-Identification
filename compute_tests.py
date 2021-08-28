@@ -1,3 +1,6 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
 from model import vggvox_model
 import librosa
 import numpy as np
@@ -9,6 +12,7 @@ import wave
 
 from wav_reader import read_and_process_audio
 import constants as c
+
 
 
 
@@ -37,7 +41,11 @@ def build_buckets(max_sec, step_sec):
 def forward_offline(model, file_dir, list_file, max_sec):
 	buckets = build_buckets(max_sec,c.BUCKET_STEP_SEC)
 	result = pd.read_csv(list_file, delimiter=",")
-	print(result.head(10))
+#	print(result.head(10))
+	print("Enroll list: ")
+	for i, r in result.iterrows():
+		s=r["speaker"]
+		print(f"{i}. {s}")
 	result['file_path'] = file_dir + result['filename']
 	result['features'] = result['file_path'].apply(lambda x: read_and_process_audio(x, buckets))
 	result['embedding'] = result['features'].apply(lambda x: np.squeeze(model.predict(x.reshape(1,*x.shape,1))))
@@ -53,9 +61,9 @@ def forward_online(model, filename, max_sec):
 
 
 def batch_offline_test():
-	print("Loading model for batch offline test from [{}]....".format(c.WEIGHTS_FILE))
+	print("loading model for batch offline test from [{}]....".format(c.weights_file))
 	model = vggvox_model()
-	model.load_weights(c.WEIGHTS_FILE)
+	model.load_weights(c.weights_file)
 	model.summary()
 
 	print("Processing enroll samples in [{}]....".format(c.ENROLL_WAV_DIR))
@@ -128,30 +136,30 @@ def offline_test():
 
 
 def online_test():
-	print("Loading model for online test from [{}]....".format(c.WEIGHTS_FILE))
+	#print("Loading model for online test from [{}]....".format(c.WEIGHTS_FILE))
 	model = vggvox_model()
 	model.load_weights(c.WEIGHTS_FILE)
-	model.summary()
-
-	print("Processing enroll samples in [{}]....".format(c.ENROLL_WAV_DIR))
+	#model.summary()
+	
+	#print("Processing enroll samples in [{}]....".format(c.ENROLL_WAV_DIR))
 	enroll_result = forward_offline(model, c.ENROLL_WAV_DIR, c.ENROLL_LIST_FILE, c.MAX_SEC_ENROLL)
 	enroll_embs = np.array([emb.tolist() for emb in enroll_result['embedding']])
 	speakers = enroll_result['speaker']
-
 	with open(c.ONLINE_RESULT_FILE, c.ONLINE_RESULT_WRITE_OPTION) as f:
 		f.write("condition,test_speaker,{},result,correct\n".format(','.join(str(id) for id in speakers))) # [BUG]: TypeError: sequence item 0: expected string, int found.
 	CSV_PREFIX = c.ONLINE_CONDITION + "," + c.ONLINE_SPEAKER + ","
 
 	p = pyaudio.PyAudio()
+	print("Start recording...")
 	while True:
 		# Record
 		stream = p.open(format=c.FORMAT,channels=c.NUM_CHANNEL,rate=c.SAMPLE_RATE,input=True,frames_per_buffer=c.CHUNK)
-		print("\nStart speaking")
+		#print("\nStart speaking")
 		frames = []
 		for i in range(0, int(c.SAMPLE_RATE / c.CHUNK*c.ONLINE_RECORD_SEC)):
 		    data = stream.read(c.CHUNK)
 		    frames.append(data)
-		print("Done recording")
+		#print("Done recording")
 
 		stream.stop_stream()
 		stream.close()
@@ -165,7 +173,7 @@ def online_test():
 		wf.close()
 
 		# Test against enrolled samples
-		print("Comparing test sample against enroll samples....")
+		#print("Comparing test sample against enroll samples....")
 		emb = forward_online(model, c.ONLINE_WAV_FILE, c.MAX_SEC_TEST)
 		buff = CSV_PREFIX
 		min_dist, min_spk = 1., None
@@ -179,9 +187,11 @@ def online_test():
 			if dist < min_dist:
 				min_dist, min_spk = dist, spk
 			buff += str(dist) + ","
-			print("Distance with speaker [{}]:\t{}".format(spk, dist))
-		print("-----> {}".format(min_spk))
-
+			#print("Distance with speaker [{}]:\t{}".format(spk, dist))
+		if min_dist <= c.THRESHOLD:
+			print("Speaker: {}".format(min_spk))
+		else:
+			print("Speaker:")
 		correct = int(min_spk == c.ONLINE_SPEAKER)
 		buff += str(min_spk) + "," + str(correct)
 		with open(c.ONLINE_RESULT_FILE, 'a') as f:
