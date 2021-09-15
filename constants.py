@@ -19,6 +19,7 @@ FORMAT = paInt16
 ONLINE_RECORD_SEC = 1.5 
 ONLINE_CONDITION = "Test"
 ONLINE_SPEAKER = "Hung.VS"
+AMBIENT_NAME="*ambient"
 
 
 # Model

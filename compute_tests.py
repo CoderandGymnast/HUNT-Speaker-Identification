@@ -189,7 +189,10 @@ def online_test():
 			buff += str(dist) + ","
 			#print("Distance with speaker [{}]:\t{}".format(spk, dist))
 		if min_dist <= c.THRESHOLD:
-			print("Speaker: {}".format(min_spk))
+			if min_spk!=c.AMBIENT_NAME:
+				print(f"Speaker: {min_spk}")
+			else:
+				print("...")
 		else:
 			print("Speaker:")
 		correct = int(min_spk == c.ONLINE_SPEAKER)
