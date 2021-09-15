@@ -139,7 +139,7 @@ def offline_test():
 # [TODO]: Wrap all of the below code into "1" function.
 model = vggvox_model()
 model.load_weights(c.WEIGHTS_FILE)
-speakerCounter=1
+speakerCounter=0
 def online_test():
 	global speakerCounter
 	#print("Loading model for online test from [{}]....".format(c.WEIGHTS_FILE))

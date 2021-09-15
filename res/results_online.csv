@@ -46,3 +46,6 @@ condition,test_speaker,*ambient,result,correct
 condition,test_speaker,*ambient,result,correct
 condition,test_speaker,*ambient,2,result,correct
 condition,test_speaker,*ambient,2,3,result,correct
+condition,test_speaker,*ambient,result,correct
+condition,test_speaker,*ambient,1,result,correct
+condition,test_speaker,*ambient,1,2,result,correct
