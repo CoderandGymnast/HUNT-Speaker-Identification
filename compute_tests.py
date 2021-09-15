@@ -1,4 +1,7 @@
+from apis import createOrAppend
 import os
+
+from tensorflow.python.autograph.operators.py_builtins import all_
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 from model import vggvox_model
@@ -151,6 +154,9 @@ def online_test():
 
 	p = pyaudio.PyAudio()
 	print("Start recording...")
+
+	# all_dists=[] # [NOTE]: Stats. 
+	voiceCounter=1
 	while True:
 		# Record
 		stream = p.open(format=c.FORMAT,channels=c.NUM_CHANNEL,rate=c.SAMPLE_RATE,input=True,frames_per_buffer=c.CHUNK)
@@ -163,6 +169,8 @@ def online_test():
 
 		stream.stop_stream()
 		stream.close()
+  
+		createOrAppend("1.wav",frames)
 
 		# Save audio
 		wf = wave.open(c.ONLINE_WAV_FILE, 'wb')
@@ -177,6 +185,7 @@ def online_test():
 		emb = forward_online(model, c.ONLINE_WAV_FILE, c.MAX_SEC_TEST)
 		buff = CSV_PREFIX
 		min_dist, min_spk = 1., None
+		isVoice=True
 		for i,spk in enumerate(enroll_result['speaker']):
 			if c.COST_METRIC == "euclidean":
 				dist = euclidean(emb, enroll_result['embedding'][i])
@@ -184,23 +193,30 @@ def online_test():
 				dist = cosine(emb, enroll_result['embedding'][i])
 			else:
 				print("Invalid cost metric [{}]".format(c.COST_METRIC))
+			if spk==c.AMBIENT_NAME:
+				if dist < c.VOICE_THRESHOLD:
+					print("...")
+					isVoice=False
+					break
+			# 	all_dists.append(dist)
 			if dist < min_dist:
 				min_dist, min_spk = dist, spk
 			buff += str(dist) + ","
-			#print("Distance with speaker [{}]:\t{}".format(spk, dist))
-		if min_dist <= c.THRESHOLD:
-			if min_spk!=c.AMBIENT_NAME:
-				print(f"Speaker: {min_spk}")
+		if isVoice:
+			if min_dist <= c.THRESHOLD:
+				if min_spk!=c.AMBIENT_NAME:
+					print(f"Speaker: {min_spk}")
+				else:
+					print(f"[WARNING]: ambient sound - Dist: {min_dist} - Note: must review code.")
 			else:
-				print("...")
-		else:
-			print("Speaker:")
+				voiceCounter=voiceCounter+1
+				print(f"[NEW VOICE]: {voiceCounter}")
 		correct = int(min_spk == c.ONLINE_SPEAKER)
 		buff += str(min_spk) + "," + str(correct)
 		with open(c.ONLINE_RESULT_FILE, 'a') as f:
 			f.write(buff + "\n")
-
-	p.terminate()
+		# if len(all_dists):
+		# 	print(f"Mean dist: {sum(all_dists)/len(all_dists)}")
 
 
 
