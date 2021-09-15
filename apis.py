@@ -25,3 +25,21 @@ def createOrAppend(fileName,frames):
         f.writeframes(b''.join(frames))
         f.close()
     
+def registerNewSpeaker(id):
+    f=open(c.ENROLL_LIST_FILE, 'a')
+    f.write(f"\n{id}.wav,{id}")
+    f.close()
+    
+# def isFullyRegistrationSpeaker(id):
+#         ans=True
+#         f= w.open(f"{id}.wav","rb")
+#         preFrames=f.readframes(c.AUDIO_MAX_NUM_FRAMES)
+#         print(len(preFrames))
+#         print(id)
+#         if preFrames == c.AUDIO_MAX_NUM_FRAMES:
+#             print("yes")
+#         else:
+#             print("no")
+#         f.close()
+    
+    

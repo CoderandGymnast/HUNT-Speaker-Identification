@@ -1,9 +1,8 @@
-from apis import createOrAppend
+# [NOTE]: The below 2 lines must be the first lines to disable Tensorflow logs. 
 import os
-
-from tensorflow.python.autograph.operators.py_builtins import all_
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
+from apis import createOrAppend, registerNewSpeaker
 from model import vggvox_model
 import librosa
 import numpy as np
@@ -137,11 +136,13 @@ def offline_test():
 	with open(c.OFFLINE_RESULT_FILE, c.OFFLINE_RESULT_WRITE_OPTION) as f:
 		scores.to_csv(f, index=False)
 
-
+# [TODO]: Wrap all of the below code into "1" function.
+model = vggvox_model()
+model.load_weights(c.WEIGHTS_FILE)
+speakerCounter=1
 def online_test():
+	global speakerCounter
 	#print("Loading model for online test from [{}]....".format(c.WEIGHTS_FILE))
-	model = vggvox_model()
-	model.load_weights(c.WEIGHTS_FILE)
 	#model.summary()
 	
 	#print("Processing enroll samples in [{}]....".format(c.ENROLL_WAV_DIR))
@@ -153,10 +154,9 @@ def online_test():
 	CSV_PREFIX = c.ONLINE_CONDITION + "," + c.ONLINE_SPEAKER + ","
 
 	p = pyaudio.PyAudio()
-	print("Start recording...")
+	print("[NOTI]: Recording...")
 
 	# all_dists=[] # [NOTE]: Stats. 
-	voiceCounter=1
 	while True:
 		# Record
 		stream = p.open(format=c.FORMAT,channels=c.NUM_CHANNEL,rate=c.SAMPLE_RATE,input=True,frames_per_buffer=c.CHUNK)
@@ -170,8 +170,6 @@ def online_test():
 		stream.stop_stream()
 		stream.close()
   
-		createOrAppend("1.wav",frames)
-
 		# Save audio
 		wf = wave.open(c.ONLINE_WAV_FILE, 'wb')
 		wf.setnchannels(c.NUM_CHANNEL)
@@ -195,7 +193,7 @@ def online_test():
 				print("Invalid cost metric [{}]".format(c.COST_METRIC))
 			if spk==c.AMBIENT_NAME:
 				if dist < c.VOICE_THRESHOLD:
-					print("...")
+					print(".")
 					isVoice=False
 					break
 			# 	all_dists.append(dist)
@@ -203,18 +201,23 @@ def online_test():
 				min_dist, min_spk = dist, spk
 			buff += str(dist) + ","
 		if isVoice:
+			if spk!=c.AMBIENT_NAME:	
+				createOrAppend(f"{c.ENROLL_WAV_DIR}{spk}.wav",frames) # [NOTE]: Not update ambient audio.
 			if min_dist <= c.THRESHOLD:
 				if min_spk!=c.AMBIENT_NAME:
 					print(f"Speaker: {min_spk}")
 				else:
 					print(f"[WARNING]: ambient sound - Dist: {min_dist} - Note: must review code.")
 			else:
-				voiceCounter=voiceCounter+1
-				print(f"[NEW VOICE]: {voiceCounter}")
-		correct = int(min_spk == c.ONLINE_SPEAKER)
-		buff += str(min_spk) + "," + str(correct)
-		with open(c.ONLINE_RESULT_FILE, 'a') as f:
-			f.write(buff + "\n")
+				speakerCounter=speakerCounter+1
+				createOrAppend(f"{c.ENROLL_WAV_DIR}{speakerCounter}.wav",frames)
+				registerNewSpeaker(speakerCounter)
+				print(f"[NOTI]: Processing new speaker - {speakerCounter}")
+				online_test()
+		# correct = int(min_spk == c.ONLINE_SPEAKER)
+		# buff += str(min_spk) + "," + str(correct)
+		# with open(c.ONLINE_RESULT_FILE, 'a') as f:
+		# 	f.write(buff + "\n")
 		# if len(all_dists):
 		# 	print(f"Mean dist: {sum(all_dists)/len(all_dists)}")
 
